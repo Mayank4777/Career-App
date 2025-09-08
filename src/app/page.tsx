@@ -80,9 +80,8 @@ export default function ResumeBuilderPage() {
     const input = resumePreviewRef.current;
     if (!input) return;
   
-    // Temporarily remove borders for PDF generation
     const elements = input.querySelectorAll('[contenteditable]');
-    elements.forEach(el => el.classList.remove('border', 'border-dashed', 'border-gray-400', 'p-1'));
+    elements.forEach(el => el.classList.remove('border', 'border-dashed', 'border-gray-400', 'p-2'));
 
     try {
       const canvas = await html2canvas(input, {
@@ -100,23 +99,13 @@ export default function ResumeBuilderPage() {
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
       const canvasRatio = canvasHeight / canvasWidth;
-      const pdfRatio = pdfHeight / pdfWidth;
 
-      let renderWidth, renderHeight;
-
-      if (canvasRatio < pdfRatio) {
-        renderWidth = pdfWidth;
-        renderHeight = renderWidth * canvasRatio;
-      } else {
-        renderHeight = pdfHeight;
-        renderWidth = renderHeight / canvasRatio;
-      }
+      const renderWidth = pdfWidth;
+      const renderHeight = renderWidth * canvasRatio;
       
       const imgData = canvas.toDataURL('image/png');
-      const x = (pdfWidth - renderWidth) / 2;
-      const y = (pdfHeight - renderHeight) / 2;
-
-      pdf.addImage(imgData, 'PNG', x, y, renderWidth, renderHeight);
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, renderHeight);
       pdf.save('enhanced-resume.pdf');
 
     } catch (error) {
@@ -127,8 +116,7 @@ export default function ResumeBuilderPage() {
         description: 'There was an error creating the PDF file.'
       })
     } finally {
-        // Add borders back after PDF generation
-        elements.forEach(el => el.classList.add('border', 'border-dashed', 'border-gray-400', 'p-1'));
+        elements.forEach(el => el.classList.add('border', 'border-dashed', 'border-gray-400', 'p-2'));
     }
   };
 
@@ -139,15 +127,15 @@ export default function ResumeBuilderPage() {
   };
 
   const renderEditableSection = (title: string, content: string | undefined, sectionKey: keyof EnhancedResume) => {
-    if (content === undefined) return null;
+    if (!content) return null;
     return (
-      <div className="mb-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700 mb-2 border-b-2 border-gray-300 pb-1">{title}</h3>
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold uppercase tracking-wider text-gray-800 mb-3 border-b-2 border-primary pb-1">{title}</h3>
         <div
           contentEditable
           onBlur={(e) => handleContentChange(sectionKey, e.currentTarget.innerText)}
           suppressContentEditableWarning
-          className="text-xs text-gray-600 whitespace-pre-wrap border border-dashed border-gray-400 p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+          className="text-sm text-gray-700 whitespace-pre-wrap border border-dashed border-gray-400 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-primary leading-relaxed"
         >
           {content}
         </div>
@@ -183,7 +171,7 @@ export default function ResumeBuilderPage() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField control={form.control} name="personalInfo" render={({ field }) => (
-                  <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Mayank Parmar" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Full Name & Contact Info</FormLabel><FormControl><Textarea placeholder="e.g., Mayank Parmar\nAhmedabad, India\nexample@email.com\n123-456-7890" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                  <FormField control={form.control} name="aboutMe" render={({ field }) => (
                   <FormItem><FormLabel>About Me</FormLabel><FormControl><Textarea placeholder="A passionate and self-motivated computer science student..." {...field} /></FormControl><FormMessage /></FormItem>
@@ -234,45 +222,42 @@ export default function ResumeBuilderPage() {
                         <p className="text-muted-foreground">AI is working its magic...</p>
                       </div>
                     ) : editableResume ? (
-                      <div className="bg-gray-100 p-4 rounded-md shadow-inner overflow-y-auto max-h-[60vh]">
-                        <div ref={resumePreviewRef} className="bg-white p-8 w-full text-black aspect-[210/297]">
-                          {/* Header */}
-                          <div className="text-center bg-gray-100 p-6 -mx-8 -mt-8 mb-6">
-                              <h1 className="text-4xl font-bold text-gray-800 uppercase tracking-widest">{getFirstName(formValues?.personalInfo)}</h1>
-                              <h2 className="text-4xl font-light text-gray-800 uppercase tracking-widest">{getLastName(formValues?.personalInfo)}</h2>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-6">
-                            {/* Left Column */}
-                            <div className="col-span-1 pr-6 border-r border-gray-300">
-                                {formValues?.githubLink && (
-                                  <div className="mb-4 flex items-start gap-2">
-                                    <Github className="size-3 mt-0.5 text-gray-600"/>
-                                    <a href={formValues.githubLink} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 break-all">{formValues.githubLink}</a>
-                                  </div>
-                                )}
-                                {formValues?.linkedinProfile && (
-                                  <div className="mb-4 flex items-start gap-2">
-                                    <Linkedin className="size-3 mt-0.5 text-gray-600"/>
-                                    <a href={formValues.linkedinProfile} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 break-all">{formValues.linkedinProfile}</a>
-                                  </div>
-                                )}
-                                {renderEditableSection('Education', editableResume.education, 'education')}
-                                {renderEditableSection('Soft Skills / Strengths', editableResume.softSkills, 'softSkills')}
-                            </div>
-
-                            {/* Right Column */}
-                            <div className="col-span-2">
-                                {renderEditableSection('About Me', editableResume.aboutMe, 'aboutMe')}
-                                {renderEditableSection('Technical Skills', editableResume.skills, 'skills')}
-                                {renderEditableSection('Projects', editableResume.projects, 'projects')}
-                                {renderEditableSection('Achievements', editableResume.achievements, 'achievements')}
-                            </div>
-                          </div>
+                      <div className="bg-gray-200 p-8 rounded-lg shadow-lg">
+                        <div ref={resumePreviewRef} className="bg-white p-12 w-full text-black aspect-[210/297] mx-auto shadow-2xl">
+                          <header className="text-center mb-10">
+                              <h1 className="text-5xl font-bold text-gray-800 uppercase tracking-widest">{getFirstName(formValues?.personalInfo)}</h1>
+                              <h2 className="text-3xl font-light text-primary uppercase tracking-wider">{getLastName(formValues?.personalInfo)}</h2>
+                              <div className="flex justify-center items-center space-x-4 mt-4">
+                                  {formValues?.githubLink && (
+                                    <a href={formValues.githubLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-gray-600 hover:text-primary">
+                                      <Github className="size-4"/>
+                                      <span>{formValues.githubLink.replace('https://', '')}</span>
+                                    </a>
+                                  )}
+                                  {formValues?.linkedinProfile && (
+                                    <a href={formValues.linkedinProfile} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-gray-600 hover:text-primary">
+                                      <Linkedin className="size-4"/>
+                                      <span>{formValues.linkedinProfile.replace('https://', '')}</span>
+                                    </a>
+                                  )}
+                              </div>
+                              <div className="text-sm text-gray-500 mt-2">
+                                  {editableResume.personalInfo?.split('\n').slice(1).join(' | ')}
+                              </div>
+                          </header>
+                          
+                          <main>
+                              {renderEditableSection('About Me', editableResume.aboutMe, 'aboutMe')}
+                              {renderEditableSection('Technical Skills', editableResume.skills, 'skills')}
+                              {renderEditableSection('Projects', editableResume.projects, 'projects')}
+                              {renderEditableSection('Education', editableResume.education, 'education')}
+                              {renderEditableSection('Soft Skills / Strengths', editableResume.softSkills, 'softSkills')}
+                              {renderEditableSection('Achievements', editableResume.achievements, 'achievements')}
+                          </main>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center h-96 text-center">
+                      <div className="flex flex-col items-center justify-center h-96 text-center border-2 border-dashed rounded-lg">
                         <p className="text-muted-foreground">Your enhanced and editable resume will appear here...</p>
                       </div>
                     )}

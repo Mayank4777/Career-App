@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { FileUp, Loader2, BotMessageSquare, SpellCheck, Wrench, ShieldCheck, Sparkles, Download, Github, Linkedin } from 'lucide-react';
+import { FileUp, Loader2, BotMessageSquare, SpellCheck, Wrench, ShieldCheck, Sparkles, Download } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Progress } from '@/components/ui/progress';
 import jsPDF from 'jspdf';
@@ -123,23 +123,14 @@ export default function ResumeAnalyzerPage() {
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
       const canvasRatio = canvasHeight / canvasWidth;
-      const pdfRatio = pdfHeight / pdfWidth;
-
-      let renderWidth, renderHeight;
-
-      if (canvasRatio < pdfRatio) {
-        renderWidth = pdfWidth;
-        renderHeight = renderWidth * canvasRatio;
-      } else {
-        renderHeight = pdfHeight;
-        renderWidth = renderHeight / canvasRatio;
-      }
+      
+      const renderWidth = pdfWidth;
+      const renderHeight = renderWidth * canvasRatio;
       
       const imgData = canvas.toDataURL('image/png');
-      const x = (pdfWidth - renderWidth) / 2;
       const y = (pdfHeight - renderHeight) / 2;
 
-      pdf.addImage(imgData, 'PNG', x, y, renderWidth, renderHeight);
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, renderHeight);
       pdf.save('enhanced-resume.pdf');
 
     } catch (error) {
@@ -170,13 +161,13 @@ export default function ResumeAnalyzerPage() {
   const renderEditableSection = (title: string, content: string | undefined, sectionKey: keyof EnhancedResume) => {
     if (content === undefined) return null;
     return (
-      <div className="mb-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700 mb-2 border-b-2 border-gray-300 pb-1">{title}</h3>
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold uppercase tracking-wider text-gray-800 mb-3 border-b-2 border-primary pb-1">{title}</h3>
         <div
           contentEditable
           onBlur={(e) => handleContentChange(sectionKey, e.currentTarget.innerText)}
           suppressContentEditableWarning
-          className="text-xs text-gray-600 whitespace-pre-wrap border border-dashed border-gray-400 p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+          className="text-sm text-gray-700 whitespace-pre-wrap border border-dashed border-gray-400 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-primary leading-relaxed"
         >
           {content}
         </div>
@@ -286,30 +277,28 @@ export default function ResumeAnalyzerPage() {
                         <p className="text-muted-foreground">AI is updating your resume...</p>
                       </div>
                     ) : editableResume ? (
-                      <div className="bg-gray-100 p-4 rounded-md shadow-inner overflow-y-auto max-h-[60vh]">
-                        <div ref={resumePreviewRef} className="bg-white p-8 w-full text-black aspect-[210/297]">
-                          <div className="text-center bg-gray-100 p-6 -mx-8 -mt-8 mb-6">
-                              <h1 className="text-4xl font-bold text-gray-800 uppercase tracking-widest">{getFirstName(editableResume?.personalInfo)}</h1>
-                              <h2 className="text-4xl font-light text-gray-800 uppercase tracking-widest">{getLastName(editableResume?.personalInfo)}</h2>
-                          </div>
+                      <div className="bg-gray-200 p-8 rounded-lg shadow-lg">
+                        <div ref={resumePreviewRef} className="bg-white p-12 w-full text-black aspect-[210/297] mx-auto shadow-2xl">
+                          <header className="text-center mb-10">
+                              <h1 className="text-5xl font-bold text-gray-800 uppercase tracking-widest">{getFirstName(editableResume?.personalInfo)}</h1>
+                              <h2 className="text-3xl font-light text-primary uppercase tracking-wider">{getLastName(editableResume?.personalInfo)}</h2>
+                              <div className="text-sm text-gray-500 mt-4">
+                                  {editableResume.personalInfo?.split('\n').slice(1).join(' | ')}
+                              </div>
+                          </header>
 
-                          <div className="grid grid-cols-3 gap-6">
-                            <div className="col-span-1 pr-6 border-r border-gray-300">
-                                {renderEditableSection('Education', editableResume.education, 'education')}
-                                {renderEditableSection('Soft Skills / Strengths', editableResume.softSkills, 'softSkills')}
-                            </div>
-
-                            <div className="col-span-2">
-                                {renderEditableSection('About Me', editableResume.aboutMe, 'aboutMe')}
-                                {renderEditableSection('Technical Skills', editableResume.skills, 'skills')}
-                                {renderEditableSection('Projects', editableResume.projects, 'projects')}
-                                {renderEditableSection('Achievements', editableResume.achievements, 'achievements')}
-                            </div>
-                          </div>
+                          <main>
+                              {renderEditableSection('About Me', editableResume.aboutMe, 'aboutMe')}
+                              {renderEditableSection('Technical Skills', editableResume.skills, 'skills')}
+                              {renderEditableSection('Projects', editableResume.projects, 'projects')}
+                              {renderEditableSection('Education', editableResume.education, 'education')}
+                              {renderEditableSection('Soft Skills / Strengths', editableResume.softSkills, 'softSkills')}
+                              {renderEditableSection('Achievements', editableResume.achievements, 'achievements')}
+                          </main>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center h-96 text-center">
+                      <div className="flex flex-col items-center justify-center h-96 text-center border-2 border-dashed rounded-lg">
                         <p className="text-muted-foreground">Your enhanced and editable resume will appear here...</p>
                       </div>
                     )}
