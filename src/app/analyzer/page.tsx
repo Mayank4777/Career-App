@@ -83,12 +83,12 @@ export default function ResumeAnalyzerPage() {
         <Card>
           <CardHeader>
             <CardTitle>Upload Your Resume</CardTitle>
-            <CardDescription>Upload a PDF, DOC, or DOCX file for analysis.</CardDescription>
+            <CardDescription>Upload a PDF file for analysis.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid w-full max-w-sm items-center gap-1.5">
               <Label htmlFor="resume-file">Resume File</Label>
-              <Input id="resume-file" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
+              <Input id="resume-file" type="file" accept=".pdf" onChange={handleFileChange} />
             </div>
             <Button onClick={handleAnalyze} disabled={isLoading || !selectedFile} className="w-full">
               {isLoading ? <Loader2 className="animate-spin" /> : <FileUp className="mr-2" />}
