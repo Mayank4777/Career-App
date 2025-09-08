@@ -11,7 +11,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { enhanceResume, EnhanceResumeInput } from './enhance-resume-with-ai';
+import { enhanceResume, type EnhanceResumeOutput } from './enhance-resume-with-ai';
+import { EnhanceResumeInputSchema } from '../schemas/resume-enhancer-schema';
 
 const AnalyzeUploadedResumeInputSchema = z.object({
   resumeDataUri: z
@@ -56,7 +57,7 @@ const extractResumeContentPrompt = ai.definePrompt({
 const enhanceAnalyzedResumeFlow = ai.defineFlow({
   name: 'enhanceAnalyzedResumeFlow',
   inputSchema: AnalyzeUploadedResumeInputSchema,
-  outputSchema: enhanceResume.outputSchema,
+  outputSchema: EnhanceResumeOutputSchema,
 }, async (input) => {
   const { output: extractedContent } = await extractResumeContentPrompt(input);
   if (!extractedContent) {
@@ -66,7 +67,7 @@ const enhanceAnalyzedResumeFlow = ai.defineFlow({
   return enhancedResume;
 });
 
-export async function enhanceAnalyzedResume(input: AnalyzeUploadedResumeInput) {
+export async function enhanceAnalyzedResume(input: AnalyzeUploadedResumeInput): Promise<EnhanceResumeOutput> {
   return enhanceAnalyzedResumeFlow(input);
 }
 
