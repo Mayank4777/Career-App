@@ -12,11 +12,15 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const EnhanceResumeInputSchema = z.object({
-  personalInfo: z.string().describe('Personal information of the user.'),
+  personalInfo: z.string().describe('Personal information of the user. e.g. Name, Address, Email, Phone.'),
+  aboutMe: z.string().describe('A brief "About Me" section for the resume.'),
   education: z.string().describe('Educational background of the user.'),
-  skills: z.string().describe('Skills of the user.'),
+  skills: z.string().describe('Technical skills of the user.'),
+  softSkills: z.string().describe('Soft skills and strengths of the user.'),
   projects: z.string().describe('Projects the user has worked on.'),
   achievements: z.string().describe('Achievements of the user.'),
+  githubLink: z.string().optional().describe('Link to the user\'s GitHub profile.'),
+  linkedinProfile: z.string().optional().describe('Link to the user\'s LinkedIn profile.'),
   exampleResume: z
     .string()
     .optional()
@@ -27,7 +31,15 @@ const EnhanceResumeInputSchema = z.object({
 export type EnhanceResumeInput = z.infer<typeof EnhanceResumeInputSchema>;
 
 const EnhanceResumeOutputSchema = z.object({
-  enhancedResume: z.string().describe('The enhanced resume content.'),
+  enhancedResume: z.object({
+    personalInfo: z.string(),
+    aboutMe: z.string(),
+    education: z.string(),
+    skills: z.string(),
+    softSkills: z.string(),
+    projects: z.string(),
+    achievements: z.string(),
+  }),
 });
 export type EnhanceResumeOutput = z.infer<typeof EnhanceResumeOutputSchema>;
 
@@ -39,23 +51,25 @@ const prompt = ai.definePrompt({
   name: 'enhanceResumePrompt',
   input: {schema: EnhanceResumeInputSchema},
   output: {schema: EnhanceResumeOutputSchema},
-  prompt: `You are an expert resume writer. You will be provided with information about a user's personal info, education, skills, projects, and achievements.
+  prompt: `You are an expert resume writer. You will be provided with information about a user.
 
-  Based on this information, you will enhance the resume by adding missing skills and keywords, improving phrasing, and ensuring it is well-formatted and professional. Pay special attention to ATS compatibility.
-
-  Consider the example resume as inspiration for layout and style, if provided. You should NOT copy it verbatim.
+  Based on this information, you will enhance each section of the resume by improving phrasing, adding relevant keywords, and ensuring it is professional. Your response should be structured in JSON format.
 
   User Information:
+  About Me: {{{aboutMe}}}
   Personal Info: {{{personalInfo}}}
   Education: {{{education}}}
-  Skills: {{{skills}}}
+  Technical Skills: {{{skills}}}
+  Soft Skills: {{{softSkills}}}
   Projects: {{{projects}}}
   Achievements: {{{achievements}}}
+  {{#if githubLink}}GitHub: {{{githubLink}}}{{/if}}
+  {{#if linkedinProfile}}LinkedIn: {{{linkedinProfile}}}{{/if}}
   {{#if exampleResume}}
   Example Resume: {{media url=exampleResume}}
   {{/if}}
 
-  Enhanced Resume:
+  Now, enhance the user's provided information and output it in the requested JSON schema. For each key in the output, provide the enhanced text for that section of the resume. For example, for the 'skills' key, return the enhanced list of skills.
   `,
 });
 

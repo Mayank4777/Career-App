@@ -4,75 +4,61 @@ import * as React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { enhanceResume, type EnhanceResumeInput } from '@/ai/flows/enhance-resume-with-ai';
+import { enhanceResume, type EnhanceResumeOutput } from '@/ai/flows/enhance-resume-with-ai';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Loader2, Sparkles } from 'lucide-react';
-import Image from 'next/image';
+import { Download, Loader2, Sparkles, Mail, Phone, MapPin, Linkedin, Github } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 const formSchema = z.object({
-  personalInfo: z.string().min(1, 'Please enter your personal information.'),
-  education: z.string().min(1, 'Please enter your education details.'),
-  skills: z.string().min(1, 'Please list your skills.'),
-  projects: z.string().min(1, 'Please describe your projects.'),
-  achievements: z.string().min(1, 'Please list your achievements.'),
-  exampleResume: z.any().optional(),
+  personalInfo: z.string().optional(),
+  aboutMe: z.string().optional(),
+  education: z.string().optional(),
+  skills: z.string().optional(),
+  softSkills: z.string().optional(),
+  projects: z.string().optional(),
+  achievements: z.string().optional(),
+  githubLink: z.string().optional(),
+  linkedinProfile: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
+type EnhancedResume = EnhanceResumeOutput['enhancedResume'];
 
 export default function ResumeBuilderPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [enhancedResume, setEnhancedResume] = React.useState('');
+  const [enhancedResume, setEnhancedResume] = React.useState<EnhancedResume | null>(null);
+  const [formValues, setFormValues] = React.useState<FormValues | null>(null);
   const resumePreviewRef = React.useRef<HTMLDivElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       personalInfo: '',
+      aboutMe: '',
       education: '',
       skills: '',
+      softSkills: '',
       projects: '',
       achievements: '',
+      githubLink: '',
+      linkedinProfile: '',
     },
   });
 
-  const handleFileRead = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
   async function onSubmit(values: FormValues) {
     setIsLoading(true);
-    setEnhancedResume('');
+    setEnhancedResume(null);
+    setFormValues(values);
 
     try {
-      let exampleResumeDataUri: string | undefined;
-      if (values.exampleResume && values.exampleResume[0]) {
-        exampleResumeDataUri = await handleFileRead(values.exampleResume[0]);
-      }
-
-      const input: EnhanceResumeInput = {
-        personalInfo: values.personalInfo,
-        education: values.education,
-        skills: values.skills,
-        projects: values.projects,
-        achievements: values.achievements,
-        exampleResume: exampleResumeDataUri,
-      };
-
-      const result = await enhanceResume(input);
+      const result = await enhanceResume(values);
       setEnhancedResume(result.enhancedResume);
       toast({
         title: 'Resume Enhanced!',
@@ -95,8 +81,11 @@ export default function ResumeBuilderPage() {
     if (!input) return;
 
     try {
-      const canvas = await html2canvas(input, { scale: 2 });
-      const imgData = canvas.toDataURL('image/png');
+      const canvas = await html2canvas(input, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+      });
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'pt',
@@ -104,8 +93,37 @@ export default function ResumeBuilderPage() {
       });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save('enhanced-resume.pdf');
+      
+      // Calculate the page margins
+      const page = input.querySelector('.resume-page') as HTMLElement;
+      if (page) {
+          const a4Ratio = 1.414;
+          const contentWidth = page.offsetWidth;
+          const contentHeight = page.offsetHeight;
+          const contentRatio = contentHeight / contentWidth;
+          
+          let imgWidth = pdfWidth;
+          let imgHeight = pdfHeight;
+          let x = 0;
+          let y = 0;
+
+          if (contentRatio > a4Ratio) {
+            imgHeight = pdf.internal.pageSize.getHeight();
+            imgWidth = (imgHeight * canvas.width) / canvas.height;
+            x = (pdfWidth - imgWidth) / 2;
+          } else {
+            y = (pdf.internal.pageSize.getHeight() - pdfHeight) / 2;
+          }
+          
+          const imgData = canvas.toDataURL('image/png');
+          pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+          pdf.save('enhanced-resume.pdf');
+      } else {
+        const imgData = canvas.toDataURL('image/png');
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save('enhanced-resume.pdf');
+      }
+
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast({
@@ -116,23 +134,26 @@ export default function ResumeBuilderPage() {
     }
   };
 
-  const renderResumeSections = (resumeText: string) => {
-    const sections = resumeText.split(/\n\s*\n/);
-    return sections.map((section, index) => {
-      const parts = section.split(/:\s*(.*)/s);
-      const title = parts[0].trim();
-      const content = parts[1]?.trim() || '';
-
-      if (!title) return null;
-
-      return (
-        <div key={index} className="mb-4">
-          <h2 className="text-lg font-semibold text-primary mb-2 border-b-2 border-primary pb-1">{title}</h2>
-          <p className="text-sm whitespace-pre-wrap">{content}</p>
-        </div>
-      );
-    });
+  const renderSection = (title: string, content: string | undefined) => {
+    if (!content) return null;
+    return (
+      <div className="mb-4">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700 mb-2 border-b-2 border-gray-300 pb-1">{title}</h3>
+        <div className="text-xs text-gray-600 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br />') }} />
+      </div>
+    );
   };
+  
+  const getFirstName = (fullName: string | undefined) => {
+    if (!fullName) return '';
+    return fullName.split(' ')[0];
+  }
+
+  const getLastName = (fullName: string | undefined) => {
+    if (!fullName) return '';
+    const parts = fullName.split(' ');
+    return parts.length > 1 ? parts.slice(1).join(' ') : '';
+  }
 
   return (
     <div className="container mx-auto p-4 md:p-8">
@@ -145,49 +166,38 @@ export default function ResumeBuilderPage() {
         <Card>
           <CardHeader>
             <CardTitle>Your Information</CardTitle>
-            <CardDescription>Provide the building blocks for your new resume.</CardDescription>
+            <CardDescription>Provide the building blocks for your new resume. All fields are optional.</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField control={form.control} name="personalInfo" render={({ field }) => (
-                  <FormItem><FormLabel>Personal Info</FormLabel><FormControl><Textarea placeholder="e.g., John Doe, Software Engineer, New York..." {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Mayank Parmar" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                 <FormField control={form.control} name="aboutMe" render={({ field }) => (
+                  <FormItem><FormLabel>About Me</FormLabel><FormControl><Textarea placeholder="A passionate and self-motivated computer science student..." {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="education" render={({ field }) => (
-                  <FormItem><FormLabel>Education</FormLabel><FormControl><Textarea placeholder="e.g., M.S. in Computer Science, Stanford University..." {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Education</FormLabel><FormControl><Textarea placeholder="e.g., IMSCIT, GLS University, Ahmedabad (2023-2026)" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="skills" render={({ field }) => (
-                  <FormItem><FormLabel>Skills</FormLabel><FormControl><Textarea placeholder="e.g., JavaScript, React, Node.js, Python, SQL..." {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Technical Skills</FormLabel><FormControl><Textarea placeholder="e.g., Languages: C, C++, Java, Python..." {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                 <FormField control={form.control} name="softSkills" render={({ field }) => (
+                  <FormItem><FormLabel>Soft Skills / Strengths</FormLabel><FormControl><Textarea placeholder="e.g., Quick Learner, Team Player..." {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="projects" render={({ field }) => (
                   <FormItem><FormLabel>Projects</FormLabel><FormControl><Textarea placeholder="e.g., Personal Portfolio Website, E-commerce App..." {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="achievements" render={({ field }) => (
-                  <FormItem><FormLabel>Achievements</FormLabel><FormControl><Textarea placeholder="e.g., Won 1st place at Hackathon, Published a paper..." {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Achievements</FormLabel><FormControl><Textarea placeholder="e.g., Participated in 3+ hackathons..." {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
-
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-medium mb-2">Template Selection</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {[1, 2, 3].map((i) => (
-                        <Card key={i} className="overflow-hidden cursor-pointer hover:border-primary transition-colors">
-                          <Image src={`https://picsum.photos/300/400?random=${i}`} alt={`Template ${i}`} width={300} height={400} className="object-cover w-full h-auto" data-ai-hint="resume template" />
-                          <CardFooter className="p-2"><p className="text-sm text-center w-full">Template {i}</p></CardFooter>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-
-                  <FormField control={form.control} name="exampleResume" render={({ field: { value, onChange, ...fieldProps } }) => (
-                    <FormItem>
-                      <FormLabel>Or Upload an Example Layout</FormLabel>
-                      <FormControl>
-                        <Input type="file" accept=".pdf,.doc,.docx,.png,.jpg" onChange={(e) => onChange(e.target.files)} {...fieldProps} />
-                      </FormControl>
-                      <FormDescription>Upload a PDF, DOC, or image as a layout inspiration.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField control={form.control} name="githubLink" render={({ field }) => (
+                    <FormItem><FormLabel>GitHub Link</FormLabel><FormControl><Input placeholder="https://github.com/username" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="linkedinProfile" render={({ field }) => (
+                    <FormItem><FormLabel>LinkedIn Profile</FormLabel><FormControl><Input placeholder="https://linkedin.com/in/username" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
                 
@@ -213,9 +223,41 @@ export default function ResumeBuilderPage() {
                         <p className="text-muted-foreground">AI is working its magic...</p>
                       </div>
                     ) : enhancedResume ? (
-                      <div ref={resumePreviewRef} className="p-4 bg-gray-50 rounded-md shadow-inner overflow-y-auto max-h-[60vh]">
-                        <div className="p-6 bg-white min-h-[29.7cm-4rem]">
-                            {renderResumeSections(enhancedResume)}
+                      <div className="bg-gray-100 p-4 rounded-md shadow-inner overflow-y-auto max-h-[60vh]">
+                        <div ref={resumePreviewRef} className="resume-page bg-white p-8 aspect-[210/297] w-full text-black">
+                          {/* Header */}
+                          <div className="text-center bg-gray-100 p-6 -mx-8 -mt-8 mb-6">
+                              <h1 className="text-4xl font-bold text-gray-800 uppercase tracking-widest">{getFirstName(formValues?.personalInfo)}</h1>
+                              <h2 className="text-4xl font-light text-gray-800 uppercase tracking-widest">{getLastName(formValues?.personalInfo)}</h2>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-6">
+                            {/* Left Column */}
+                            <div className="col-span-1 pr-6 border-r border-gray-300">
+                                {formValues?.githubLink && (
+                                  <div className="mb-4 flex items-start gap-2">
+                                    <Github className="size-3 mt-0.5 text-gray-600"/>
+                                    <a href={formValues.githubLink} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 break-all">{formValues.githubLink}</a>
+                                  </div>
+                                )}
+                                {formValues?.linkedinProfile && (
+                                  <div className="mb-4 flex items-start gap-2">
+                                    <Linkedin className="size-3 mt-0.5 text-gray-600"/>
+                                    <a href={formValues.linkedinProfile} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 break-all">{formValues.linkedinProfile}</a>
+                                  </div>
+                                )}
+                                {renderSection('Education', enhancedResume.education)}
+                                {renderSection('Soft Skills / Strengths', enhancedResume.softSkills)}
+                            </div>
+
+                            {/* Right Column */}
+                            <div className="col-span-2">
+                                {renderSection('About Me', enhancedResume.aboutMe)}
+                                {renderSection('Technical Skills', enhancedResume.skills)}
+                                {renderSection('Projects', enhancedResume.projects)}
+                                {renderSection('Achievements', enhancedResume.achievements)}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ) : (
