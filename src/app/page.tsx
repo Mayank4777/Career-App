@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Loader2, Sparkles, Mail, Phone, MapPin, Linkedin, Github } from 'lucide-react';
+import { Download, Loader2, Sparkles, Github, Linkedin } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -33,7 +33,7 @@ type EnhancedResume = EnhanceResumeOutput['enhancedResume'];
 export default function ResumeBuilderPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [enhancedResume, setEnhancedResume] = React.useState<EnhancedResume | null>(null);
+  const [editableResume, setEditableResume] = React.useState<EnhancedResume | null>(null);
   const [formValues, setFormValues] = React.useState<FormValues | null>(null);
   const resumePreviewRef = React.useRef<HTMLDivElement>(null);
 
@@ -54,15 +54,15 @@ export default function ResumeBuilderPage() {
 
   async function onSubmit(values: FormValues) {
     setIsLoading(true);
-    setEnhancedResume(null);
+    setEditableResume(null);
     setFormValues(values);
 
     try {
       const result = await enhanceResume(values);
-      setEnhancedResume(result.enhancedResume);
+      setEditableResume(result.enhancedResume);
       toast({
         title: 'Resume Enhanced!',
-        description: 'Your AI-powered resume is ready for review.',
+        description: 'Your AI-powered resume is ready for review and editing.',
       });
     } catch (error) {
       console.error('Error enhancing resume:', error);
@@ -79,6 +79,10 @@ export default function ResumeBuilderPage() {
   const handleDownload = async () => {
     const input = resumePreviewRef.current;
     if (!input) return;
+  
+    // Temporarily remove borders for PDF generation
+    const elements = input.querySelectorAll('[contenteditable]');
+    elements.forEach(el => el.classList.remove('border', 'border-dashed', 'border-gray-400', 'p-1'));
 
     try {
       const canvas = await html2canvas(input, {
@@ -92,37 +96,28 @@ export default function ResumeBuilderPage() {
         format: 'a4',
       });
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      // Calculate the page margins
-      const page = input.querySelector('.resume-page') as HTMLElement;
-      if (page) {
-          const a4Ratio = 1.414;
-          const contentWidth = page.offsetWidth;
-          const contentHeight = page.offsetHeight;
-          const contentRatio = contentHeight / contentWidth;
-          
-          let imgWidth = pdfWidth;
-          let imgHeight = pdfHeight;
-          let x = 0;
-          let y = 0;
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const canvasRatio = canvasHeight / canvasWidth;
+      const pdfRatio = pdfHeight / pdfWidth;
 
-          if (contentRatio > a4Ratio) {
-            imgHeight = pdf.internal.pageSize.getHeight();
-            imgWidth = (imgHeight * canvas.width) / canvas.height;
-            x = (pdfWidth - imgWidth) / 2;
-          } else {
-            y = (pdf.internal.pageSize.getHeight() - pdfHeight) / 2;
-          }
-          
-          const imgData = canvas.toDataURL('image/png');
-          pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
-          pdf.save('enhanced-resume.pdf');
+      let renderWidth, renderHeight;
+
+      if (canvasRatio < pdfRatio) {
+        renderWidth = pdfWidth;
+        renderHeight = renderWidth * canvasRatio;
       } else {
-        const imgData = canvas.toDataURL('image/png');
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save('enhanced-resume.pdf');
+        renderHeight = pdfHeight;
+        renderWidth = renderHeight / canvasRatio;
       }
+      
+      const imgData = canvas.toDataURL('image/png');
+      const x = (pdfWidth - renderWidth) / 2;
+      const y = (pdfHeight - renderHeight) / 2;
+
+      pdf.addImage(imgData, 'PNG', x, y, renderWidth, renderHeight);
+      pdf.save('enhanced-resume.pdf');
 
     } catch (error) {
       console.error("Error generating PDF:", error);
@@ -131,15 +126,31 @@ export default function ResumeBuilderPage() {
         title: 'PDF Generation Failed',
         description: 'There was an error creating the PDF file.'
       })
+    } finally {
+        // Add borders back after PDF generation
+        elements.forEach(el => el.classList.add('border', 'border-dashed', 'border-gray-400', 'p-1'));
     }
   };
 
-  const renderSection = (title: string, content: string | undefined) => {
-    if (!content) return null;
+  const handleContentChange = (section: keyof EnhancedResume, content: string) => {
+    if (editableResume) {
+      setEditableResume(prev => prev ? { ...prev, [section]: content } : null);
+    }
+  };
+
+  const renderEditableSection = (title: string, content: string | undefined, sectionKey: keyof EnhancedResume) => {
+    if (content === undefined) return null;
     return (
       <div className="mb-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700 mb-2 border-b-2 border-gray-300 pb-1">{title}</h3>
-        <div className="text-xs text-gray-600 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br />') }} />
+        <div
+          contentEditable
+          onBlur={(e) => handleContentChange(sectionKey, e.currentTarget.innerText)}
+          suppressContentEditableWarning
+          className="text-xs text-gray-600 whitespace-pre-wrap border border-dashed border-gray-400 p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          {content}
+        </div>
       </div>
     );
   };
@@ -159,7 +170,7 @@ export default function ResumeBuilderPage() {
     <div className="container mx-auto p-4 md:p-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Resume Builder</h1>
-        <p className="text-muted-foreground">Fill in your details and let our AI craft the perfect resume for you.</p>
+        <p className="text-muted-foreground">Fill in your details, let AI enhance your resume, then edit and download.</p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
@@ -214,7 +225,7 @@ export default function ResumeBuilderPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>AI-Enhanced Resume</CardTitle>
-                    <CardDescription>Your generated resume. Review the preview below before downloading.</CardDescription>
+                    <CardDescription>Your generated resume is now editable. Click on a section to make changes.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
@@ -222,9 +233,9 @@ export default function ResumeBuilderPage() {
                         <Loader2 className="size-12 animate-spin text-primary" />
                         <p className="text-muted-foreground">AI is working its magic...</p>
                       </div>
-                    ) : enhancedResume ? (
+                    ) : editableResume ? (
                       <div className="bg-gray-100 p-4 rounded-md shadow-inner overflow-y-auto max-h-[60vh]">
-                        <div ref={resumePreviewRef} className="resume-page bg-white p-8 aspect-[210/297] w-full text-black">
+                        <div ref={resumePreviewRef} className="bg-white p-8 w-full text-black aspect-[210/297]">
                           {/* Header */}
                           <div className="text-center bg-gray-100 p-6 -mx-8 -mt-8 mb-6">
                               <h1 className="text-4xl font-bold text-gray-800 uppercase tracking-widest">{getFirstName(formValues?.personalInfo)}</h1>
@@ -246,27 +257,27 @@ export default function ResumeBuilderPage() {
                                     <a href={formValues.linkedinProfile} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 break-all">{formValues.linkedinProfile}</a>
                                   </div>
                                 )}
-                                {renderSection('Education', enhancedResume.education)}
-                                {renderSection('Soft Skills / Strengths', enhancedResume.softSkills)}
+                                {renderEditableSection('Education', editableResume.education, 'education')}
+                                {renderEditableSection('Soft Skills / Strengths', editableResume.softSkills, 'softSkills')}
                             </div>
 
                             {/* Right Column */}
                             <div className="col-span-2">
-                                {renderSection('About Me', enhancedResume.aboutMe)}
-                                {renderSection('Technical Skills', enhancedResume.skills)}
-                                {renderSection('Projects', enhancedResume.projects)}
-                                {renderSection('Achievements', enhancedResume.achievements)}
+                                {renderEditableSection('About Me', editableResume.aboutMe, 'aboutMe')}
+                                {renderEditableSection('Technical Skills', editableResume.skills, 'skills')}
+                                {renderEditableSection('Projects', editableResume.projects, 'projects')}
+                                {renderEditableSection('Achievements', editableResume.achievements, 'achievements')}
                             </div>
                           </div>
                         </div>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center h-96 text-center">
-                        <p className="text-muted-foreground">Your enhanced resume will appear here...</p>
+                        <p className="text-muted-foreground">Your enhanced and editable resume will appear here...</p>
                       </div>
                     )}
                 </CardContent>
-                {enhancedResume && !isLoading && (
+                {editableResume && !isLoading && (
                   <CardFooter>
                     <Button onClick={handleDownload} className="w-full">
                       <Download className="mr-2" />
