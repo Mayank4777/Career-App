@@ -10,17 +10,9 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { EnhanceResumeOutputSchema } from '../schemas/resume-enhancer-schema';
+import { EnhanceResumeOutputSchema, EditResumeStyleInputSchema, EditResumeStyleOutputSchema } from '../schemas/resume-enhancer-schema';
 
-const EditResumeStyleInputSchema = z.object({
-  currentResume: EnhanceResumeOutputSchema.shape.enhancedResume,
-  instruction: z.string().describe('The user\'s instruction for how to change the resume style. For example: "Make the section titles blue and bold." or "Change the font for the body text to a serif font."'),
-});
 export type EditResumeStyleInput = z.infer<typeof EditResumeStyleInputSchema>;
-
-export const EditResumeStyleOutputSchema = z.object({
-  css: z.string().describe('The generated CSS to apply the requested style changes. This should be a string of CSS rules. For example: `h3 { color: blue; font-weight: bold; } .text-xs { font-family: serif; }`'),
-});
 export type EditResumeStyleOutput = z.infer<typeof EditResumeStyleOutputSchema>;
 
 
