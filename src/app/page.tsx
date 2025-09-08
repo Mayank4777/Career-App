@@ -129,13 +129,13 @@ export default function ResumeBuilderPage() {
   const renderEditableSection = (title: string, content: string | undefined, sectionKey: keyof EnhancedResume) => {
     if (!content) return null;
     return (
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold uppercase tracking-wider text-gray-800 mb-3 border-b-2 border-primary pb-1">{title}</h3>
+      <div className="mb-4">
+        <h3 className="text-base font-bold uppercase tracking-wider text-gray-700 mb-2 border-b border-primary pb-1">{title}</h3>
         <div
           contentEditable
           onBlur={(e) => handleContentChange(sectionKey, e.currentTarget.innerText)}
           suppressContentEditableWarning
-          className="text-sm text-gray-700 whitespace-pre-wrap border border-dashed border-gray-400 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-primary leading-relaxed"
+          className="text-xs text-gray-700 whitespace-pre-wrap border border-dashed border-gray-400 p-2 rounded-md focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed"
         >
           {content}
         </div>
@@ -152,6 +152,11 @@ export default function ResumeBuilderPage() {
     if (!fullName) return '';
     const parts = fullName.split(' ');
     return parts.length > 1 ? parts.slice(1).join(' ') : '';
+  }
+  
+  const getContactInfo = (personalInfo: string | undefined) => {
+    if (!personalInfo) return '';
+    return personalInfo.split('\n').slice(1).join(' | ');
   }
 
   return (
@@ -223,37 +228,40 @@ export default function ResumeBuilderPage() {
                       </div>
                     ) : editableResume ? (
                       <div className="bg-gray-200 p-8 rounded-lg shadow-lg">
-                        <div ref={resumePreviewRef} className="bg-white p-12 w-full text-black aspect-[210/297] mx-auto shadow-2xl">
-                          <header className="text-center mb-10">
-                              <h1 className="text-5xl font-bold text-gray-800 uppercase tracking-widest">{getFirstName(formValues?.personalInfo)}</h1>
-                              <h2 className="text-3xl font-light text-primary uppercase tracking-wider">{getLastName(formValues?.personalInfo)}</h2>
-                              <div className="flex justify-center items-center space-x-4 mt-4">
+                        <div ref={resumePreviewRef} className="bg-white p-8 w-full text-black aspect-[210/297] mx-auto shadow-2xl">
+                          <header className="text-center mb-6">
+                              <h1 className="text-3xl font-bold text-gray-800 uppercase tracking-wider">{getFirstName(formValues?.personalInfo)} {getLastName(formValues?.personalInfo)}</h1>
+                              <div className="text-xs text-gray-500 mt-2">
+                                  {getContactInfo(editableResume.personalInfo)}
+                              </div>
+                              <div className="flex justify-center items-center space-x-4 mt-2">
                                   {formValues?.githubLink && (
-                                    <a href={formValues.githubLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-gray-600 hover:text-primary">
-                                      <Github className="size-4"/>
+                                    <a href={formValues.githubLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-gray-600 hover:text-primary">
+                                      <Github className="size-3"/>
                                       <span>{formValues.githubLink.replace('https://', '')}</span>
                                     </a>
                                   )}
                                   {formValues?.linkedinProfile && (
-                                    <a href={formValues.linkedinProfile} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-gray-600 hover:text-primary">
-                                      <Linkedin className="size-4"/>
+                                    <a href={formValues.linkedinProfile} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-gray-600 hover:text-primary">
+                                      <Linkedin className="size-3"/>
                                       <span>{formValues.linkedinProfile.replace('https://', '')}</span>
                                     </a>
                                   )}
                               </div>
-                              <div className="text-sm text-gray-500 mt-2">
-                                  {editableResume.personalInfo?.split('\n').slice(1).join(' | ')}
-                              </div>
                           </header>
                           
-                          <main>
-                              {renderEditableSection('About Me', editableResume.aboutMe, 'aboutMe')}
-                              {renderEditableSection('Technical Skills', editableResume.skills, 'skills')}
-                              {renderEditableSection('Projects', editableResume.projects, 'projects')}
-                              {renderEditableSection('Education', editableResume.education, 'education')}
-                              {renderEditableSection('Soft Skills / Strengths', editableResume.softSkills, 'softSkills')}
-                              {renderEditableSection('Achievements', editableResume.achievements, 'achievements')}
-                          </main>
+                          <div className="grid grid-cols-3 gap-6">
+                            <main className="col-span-2">
+                                {renderEditableSection('About Me', editableResume.aboutMe, 'aboutMe')}
+                                {renderEditableSection('Projects', editableResume.projects, 'projects')}
+                                {renderEditableSection('Achievements', editableResume.achievements, 'achievements')}
+                            </main>
+                            <aside className="col-span-1">
+                                {renderEditableSection('Education', editableResume.education, 'education')}
+                                {renderEditableSection('Technical Skills', editableResume.skills, 'skills')}
+                                {renderEditableSection('Soft Skills', editableResume.softSkills, 'softSkills')}
+                            </aside>
+                          </div>
                         </div>
                       </div>
                     ) : (
