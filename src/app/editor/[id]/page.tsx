@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Loader2, Sparkles, Github, Linkedin, Wand2, Trash2 } from 'lucide-react';
+import { Download, Loader2, Sparkles, Github, Linkedin, Wand2, Trash2, FileText, FileJson } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -80,7 +80,7 @@ export default function EditorPage() {
     }
   };
   
-  const handleDownload = async () => {
+  const handleDownloadPdf = async () => {
     const input = resumePreviewRef.current;
     if (!input) return;
   
@@ -113,6 +113,31 @@ export default function EditorPage() {
         // Restore editing indicators
         elements.forEach(el => el.classList.add('border-dashed', 'border-gray-400', 'p-2', 'focus:ring-1', 'focus:ring-primary'));
     }
+  };
+
+  const handleDownloadDoc = () => {
+    const input = resumePreviewRef.current;
+    if (!input) return;
+
+    // Temporarily remove editing indicators for DOC generation
+    const tempDiv = input.cloneNode(true) as HTMLDivElement;
+    const elements = tempDiv.querySelectorAll('[contenteditable]');
+    elements.forEach(el => {
+      el.removeAttribute('contenteditable');
+      el.classList.remove('border-dashed', 'border-gray-400', 'p-2', 'focus:ring-1', 'focus:ring-primary', 'hover:border-gray-400', 'focus:outline-none');
+    });
+
+    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML to Word Document</title></head><body>";
+    const footer = "</body></html>";
+    const sourceHTML = header + tempDiv.innerHTML + footer;
+
+    const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
+    const fileDownload = document.createElement("a");
+    document.body.appendChild(fileDownload);
+    fileDownload.href = source;
+    fileDownload.download = `enhanced-resume-${resumeId}.doc`;
+    fileDownload.click();
+    document.body.removeChild(fileDownload);
   };
 
   const handleDeleteCss = () => {
@@ -171,7 +196,8 @@ export default function EditorPage() {
         <div className="container mx-auto p-4 flex justify-between items-center">
           <h1 className="text-xl font-bold">Resume Editor</h1>
           <div className="flex items-center gap-2">
-            <Button onClick={handleDownload} variant="default" size="sm"><Download className="mr-2" /> Download PDF</Button>
+            <Button onClick={handleDownloadPdf} variant="outline" size="sm"><FileText className="mr-2" /> Download PDF</Button>
+            <Button onClick={handleDownloadDoc} variant="outline" size="sm"><FileJson className="mr-2" /> Download DOC</Button>
           </div>
         </div>
       </header>
@@ -304,3 +330,5 @@ export function EditorIndexPage() {
         </div>
     )
 }
+
+    
