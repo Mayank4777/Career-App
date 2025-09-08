@@ -11,6 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { enhanceResume, EnhanceResumeInput } from './enhance-resume-with-ai';
 
 const AnalyzeUploadedResumeInputSchema = z.object({
   resumeDataUri: z
@@ -29,6 +30,7 @@ const AnalyzeUploadedResumeOutputSchema = z.object({
       .string()
       .describe('Suggestions for missing skills to add to the resume.'),
     atsCompatibility: z.string().describe('Feedback on the resume ATS compatibility.'),
+    atsScore: z.number().describe('A rating for ATS compatibility out of 10.'),
   }),
 });
 export type AnalyzeUploadedResumeOutput = z.infer<typeof AnalyzeUploadedResumeOutputSchema>;
@@ -37,6 +39,35 @@ export async function analyzeUploadedResume(
   input: AnalyzeUploadedResumeInput
 ): Promise<AnalyzeUploadedResumeOutput> {
   return analyzeUploadedResumeFlow(input);
+}
+
+const extractResumeContentPrompt = ai.definePrompt({
+  name: 'extractResumeContentPrompt',
+  input: { schema: z.object({ resumeDataUri: z.string() }) },
+  output: { schema: EnhanceResumeInputSchema },
+  prompt: `You are a resume parser. Extract all the text content from the provided resume file and structure it into the following JSON format.
+  If a section is not found, leave the corresponding string field empty.
+
+  Resume: {{media url=resumeDataUri}}
+  
+  Extract the content into the provided JSON schema.`,
+});
+
+const enhanceAnalyzedResumeFlow = ai.defineFlow({
+  name: 'enhanceAnalyzedResumeFlow',
+  inputSchema: AnalyzeUploadedResumeInputSchema,
+  outputSchema: enhanceResume.outputSchema,
+}, async (input) => {
+  const { output: extractedContent } = await extractResumeContentPrompt(input);
+  if (!extractedContent) {
+    throw new Error('Failed to extract content from resume.');
+  }
+  const enhancedResume = await enhanceResume(extractedContent);
+  return enhancedResume;
+});
+
+export async function enhanceAnalyzedResume(input: AnalyzeUploadedResumeInput) {
+  return enhanceAnalyzedResumeFlow(input);
 }
 
 const prompt = ai.definePrompt({
@@ -52,6 +83,7 @@ const prompt = ai.definePrompt({
       - Grammar: Check the grammar and spelling of the resume and provide corrections.
       - Missing Skills: Identify any missing skills that should be added to the resume based on industry standards.
       - ATS Compatibility: Check the resume for Applicant Tracking System (ATS) compatibility issues.
+      - ATS Score: Provide a rating for the resume's ATS compatibility on a scale of 1 to 10.
 
       Output your feedback in the requested JSON schema. Focus on actionable advice the candidate can apply immediately.`,
 });
