@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FileText, ScanSearch, MessageSquare } from 'lucide-react';
+import { FileText, ScanSearch, MessageSquare, PencilRuler } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sidebar,
@@ -20,11 +20,14 @@ const menuItems = [
   { href: '/', label: 'Resume Builder', icon: FileText },
   { href: '/analyzer', label: 'Resume Analyzer', icon: ScanSearch },
   { href: '/interviews', label: 'Interview Prep', icon: MessageSquare },
+  { href: '/editor', label: 'Resume Editor', icon: PencilRuler },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { open } = useSidebar();
+
+  const isEditorActive = pathname.startsWith('/editor');
 
   return (
     <Sidebar>
@@ -36,20 +39,27 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === item.href}
-                tooltip={{ children: item.label, side: "right", align: "center" }}
-              >
-                <Link href={item.href}>
-                  <item.icon />
-                  <span>{item.label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {menuItems.map((item) => {
+            let isActive = pathname === item.href;
+            if (item.href === '/editor') {
+              isActive = isEditorActive;
+            }
+
+            return (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive}
+                  tooltip={{ children: item.label, side: "right", align: "center" }}
+                >
+                  <Link href={item.href}>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarContent>
     </Sidebar>
