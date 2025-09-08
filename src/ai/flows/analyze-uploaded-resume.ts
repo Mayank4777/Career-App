@@ -12,7 +12,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { enhanceResume, type EnhanceResumeOutput } from './enhance-resume-with-ai';
-import { EnhanceResumeInputSchema } from '../schemas/resume-enhancer-schema';
+import { EnhanceResumeInputSchema, EnhanceResumeOutputSchema } from '../schemas/resume-enhancer-schema';
 
 const AnalyzeUploadedResumeInputSchema = z.object({
   resumeDataUri: z
