@@ -13,6 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Download, Loader2, Sparkles } from 'lucide-react';
 import Image from 'next/image';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const formSchema = z.object({
   personalInfo: z.string().min(1, 'Please enter your personal information.'),
@@ -29,6 +31,7 @@ export default function ResumeBuilderPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const [enhancedResume, setEnhancedResume] = React.useState('');
+  const resumePreviewRef = React.useRef<HTMLDivElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -87,14 +90,48 @@ export default function ResumeBuilderPage() {
     }
   }
 
-  const handleDownload = () => {
-    const element = document.createElement("a");
-    const file = new Blob([enhancedResume], {type: 'text/plain;charset=utf-8'});
-    element.href = URL.createObjectURL(file);
-    element.download = "enhanced-resume.txt";
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+  const handleDownload = async () => {
+    const input = resumePreviewRef.current;
+    if (!input) return;
+
+    try {
+      const canvas = await html2canvas(input, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'pt',
+        format: 'a4',
+      });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save('enhanced-resume.pdf');
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({
+        variant: 'destructive',
+        title: 'PDF Generation Failed',
+        description: 'There was an error creating the PDF file.'
+      })
+    }
+  };
+
+  const renderResumeSections = (resumeText: string) => {
+    const sections = resumeText.split(/\n\s*\n/);
+    return sections.map((section, index) => {
+      const parts = section.split(/:\s*(.*)/s);
+      const title = parts[0].trim();
+      const content = parts[1]?.trim() || '';
+
+      if (!title) return null;
+
+      return (
+        <div key={index} className="mb-4">
+          <h2 className="text-lg font-semibold text-primary mb-2 border-b-2 border-primary pb-1">{title}</h2>
+          <p className="text-sm whitespace-pre-wrap">{content}</p>
+        </div>
+      );
+    });
   };
 
   return (
@@ -167,7 +204,7 @@ export default function ResumeBuilderPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>AI-Enhanced Resume</CardTitle>
-                    <CardDescription>Your generated resume. You can edit the text below before downloading.</CardDescription>
+                    <CardDescription>Your generated resume. Review the preview below before downloading.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
@@ -175,20 +212,23 @@ export default function ResumeBuilderPage() {
                         <Loader2 className="size-12 animate-spin text-primary" />
                         <p className="text-muted-foreground">AI is working its magic...</p>
                       </div>
+                    ) : enhancedResume ? (
+                      <div ref={resumePreviewRef} className="p-4 bg-gray-50 rounded-md shadow-inner overflow-y-auto max-h-[60vh]">
+                        <div className="p-6 bg-white min-h-[29.7cm-4rem]">
+                            {renderResumeSections(enhancedResume)}
+                        </div>
+                      </div>
                     ) : (
-                      <Textarea
-                        value={enhancedResume}
-                        onChange={(e) => setEnhancedResume(e.target.value)}
-                        placeholder="Your enhanced resume will appear here..."
-                        className="min-h-[60vh] font-mono text-sm"
-                      />
+                      <div className="flex flex-col items-center justify-center h-96 text-center">
+                        <p className="text-muted-foreground">Your enhanced resume will appear here...</p>
+                      </div>
                     )}
                 </CardContent>
                 {enhancedResume && !isLoading && (
                   <CardFooter>
                     <Button onClick={handleDownload} className="w-full">
                       <Download className="mr-2" />
-                      Download as .txt
+                      Download as PDF
                     </Button>
                   </CardFooter>
                 )}
